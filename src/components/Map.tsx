@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { DisasterArea } from '../data/mockData';
-import { motion } from 'motion/react';
 
 interface MapProps {
   areas: DisasterArea[];
@@ -16,13 +15,15 @@ function MapUpdater({ selectedArea, areas }: { selectedArea: DisasterArea | unde
   
   useEffect(() => {
     if (selectedArea) {
-      map.flyTo([selectedArea.lat, selectedArea.lng], 8, {
-        duration: 1.5,
+      map.flyTo([selectedArea.lat, selectedArea.lng], 9, {
+        duration: 2,
+        easeLinearity: 0.25
       });
     } else if (areas.length > 0) {
       // Center on India generally
       map.flyTo([20.5937, 78.9629], 5, {
-        duration: 1.5,
+        duration: 2,
+        easeLinearity: 0.25
       });
     }
   }, [selectedArea, map, areas]);
@@ -41,9 +42,8 @@ export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
   };
 
   const getRadius = (peopleAffected: number) => {
-    // Scale radius based on people affected (min 10, max 30)
-    const min = 10;
-    const max = 35;
+    const min = 12;
+    const max = 40;
     const scaled = (peopleAffected / 50000) * max;
     return Math.max(min, Math.min(scaled, max));
   };
@@ -51,11 +51,14 @@ export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
   const selectedArea = areas.find(a => a.id === selectedAreaId);
 
   return (
-    <div className="w-full h-full rounded-2xl overflow-hidden shadow-sm border border-slate-200 relative z-0">
+    <div className="w-full h-full relative z-0">
       <MapContainer 
         center={[20.5937, 78.9629]} 
         zoom={5} 
         scrollWheelZoom={true}
+        zoomAnimation={true}
+        wheelPxPerZoomLevel={60}
+        zoomSnap={0.5}
         className="w-full h-full"
         zoomControl={false}
       >
@@ -98,19 +101,19 @@ export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
       </MapContainer>
       
       {/* Custom Map Overlay for Legend */}
-      <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm p-3 rounded-xl shadow-sm border border-slate-200 z-[1000] text-xs">
-        <h4 className="font-semibold text-slate-800 mb-2">Priority Legend</h4>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full bg-red-500 opacity-80"></div>
-          <span className="text-slate-600">High Priority</span>
+      <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-200 z-[1000] text-sm">
+        <h4 className="font-bold text-slate-800 mb-3">Priority Legend</h4>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-4 h-4 rounded-full bg-red-500 opacity-80 shadow-sm"></div>
+          <span className="text-slate-700 font-medium">High Priority</span>
         </div>
-        <div className="flex items-center gap-2 mb-1">
-          <div className="w-3 h-3 rounded-full bg-yellow-500 opacity-80"></div>
-          <span className="text-slate-600">Medium Priority</span>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-4 h-4 rounded-full bg-yellow-500 opacity-80 shadow-sm"></div>
+          <span className="text-slate-700 font-medium">Medium Priority</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-500 opacity-80"></div>
-          <span className="text-slate-600">Low Priority</span>
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 rounded-full bg-green-500 opacity-80 shadow-sm"></div>
+          <span className="text-slate-700 font-medium">Low Priority</span>
         </div>
       </div>
     </div>
