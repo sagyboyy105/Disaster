@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { DisasterArea } from '../data/mockData';
 
@@ -49,6 +51,64 @@ export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOr
     return Math.max(min, Math.min(scaled, max));
   };
 
+  const createCustomIcon = (area: DisasterArea, isSelected: boolean) => {
+    const color = getStatusColor(area);
+    const radius = getRadius(area.peopleAffected);
+    const size = radius * 2;
+    
+    const html = `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: ${color};
+        opacity: ${isSelected ? 0.9 : 0.7};
+        border: ${isSelected ? '3px solid #000' : '1px solid ' + color};
+        border-radius: 50%;
+        box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        transform: translate(-50%, -50%);
+      "></div>
+    `;
+
+    return L.divIcon({
+      html,
+      className: 'custom-marker-icon',
+      iconSize: [0, 0], // The div itself handles the sizing and centering via translate
+      iconAnchor: [0, 0],
+      popupAnchor: [0, -radius]
+    });
+  };
+
+  const createClusterCustomIcon = function (cluster: any) {
+    const count = cluster.getChildCount();
+    let size = 40;
+    if (count > 5) size = 50;
+    if (count > 10) size = 60;
+
+    return L.divIcon({
+      html: `
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          background-color: rgba(239, 68, 68, 0.8);
+          border: 3px solid white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: bold;
+          font-size: 14px;
+          box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        ">
+          ${count}
+        </div>
+      `,
+      className: 'custom-cluster-icon',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2]
+    });
+  };
+
   const selectedArea = areas.find(a => a.id === selectedAreaId);
 
   return (
@@ -70,39 +130,39 @@ export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOr
         
         <MapUpdater selectedArea={selectedArea} areas={areas} />
 
-        {areas.map((area) => {
-          const isSelected = area.id === selectedAreaId;
-          const isLockedByOther = area.status !== 'Pending' && area.assignedTo !== currentUserOrg;
-          const color = getStatusColor(area);
-          
-          return (
-            <CircleMarker
-              key={area.id}
-              center={[area.lat, area.lng]}
-              pathOptions={{
-                color: isSelected ? '#000' : color,
-                fillColor: color,
-                fillOpacity: isSelected ? 0.9 : 0.7,
-                weight: isSelected ? 3 : 1,
-              }}
-              radius={getRadius(area.peopleAffected)}
-              eventHandlers={{
-                click: () => onSelectArea(area.id),
-              }}
-            >
-              <Popup className="custom-popup">
-                <div className="p-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-bold text-slate-900">{area.name}</h3>
-                    {isLockedByOther && <span title="Locked" className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">🔒 Locked</span>}
+        <MarkerClusterGroup
+          chunkedLoading
+          iconCreateFunction={createClusterCustomIcon}
+          maxClusterRadius={60}
+          spiderfyOnMaxZoom={true}
+        >
+          {areas.map((area) => {
+            const isSelected = area.id === selectedAreaId;
+            const isLockedByOther = area.status !== 'Pending' && area.assignedTo !== currentUserOrg;
+            
+            return (
+              <Marker
+                key={area.id}
+                position={[area.lat, area.lng]}
+                icon={createCustomIcon(area, isSelected)}
+                eventHandlers={{
+                  click: () => onSelectArea(area.id),
+                }}
+              >
+                <Popup className="custom-popup">
+                  <div className="p-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-bold text-slate-900">{area.name}</h3>
+                      {isLockedByOther && <span title="Locked" className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">🔒 Locked</span>}
+                    </div>
+                    <p className="text-xs text-slate-500 mb-2">Priority: <span className="font-semibold">{area.priority}</span></p>
+                    <p className="text-xs text-slate-700">{area.damageLevel}</p>
                   </div>
-                  <p className="text-xs text-slate-500 mb-2">Priority: <span className="font-semibold">{area.priority}</span></p>
-                  <p className="text-xs text-slate-700">{area.damageLevel}</p>
-                </div>
-              </Popup>
-            </CircleMarker>
-          );
-        })}
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
       </MapContainer>
       
       {/* Custom Map Overlay for Legend */}

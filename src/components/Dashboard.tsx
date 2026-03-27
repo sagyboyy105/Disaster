@@ -18,6 +18,7 @@ export default function Dashboard({ role, orgName, onLogout, areas, setAreas }: 
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Active' | 'Completed'>('All');
+  const [viewMode, setViewMode] = useState<'all' | 'my-tasks' | 'others-tasks'>('all');
 
   const selectedArea = useMemo(() => areas.find(a => a.id === selectedAreaId), [areas, selectedAreaId]);
 
@@ -29,9 +30,15 @@ export default function Dashboard({ role, orgName, onLogout, areas, setAreas }: 
         statusFilter === 'Pending' ? a.status === 'Pending' :
         statusFilter === 'Active' ? (a.status === 'Assigned' || a.status === 'In Progress') :
         statusFilter === 'Completed' ? a.status === 'Completed' : true;
-      return matchesSearch && matchesFilter;
+      
+      const matchesViewMode = 
+        viewMode === 'all' ? true : 
+        viewMode === 'my-tasks' ? a.assignedTo === orgName :
+        (a.status !== 'Pending' && !!a.assignedTo && a.assignedTo !== orgName);
+      
+      return matchesSearch && matchesFilter && matchesViewMode;
     });
-  }, [areas, searchQuery, statusFilter]);
+  }, [areas, searchQuery, statusFilter, viewMode, orgName]);
 
   const stats = useMemo(() => {
     return {
@@ -173,6 +180,27 @@ export default function Dashboard({ role, orgName, onLogout, areas, setAreas }: 
                 </button>
               </div>
 
+              <div className="flex border-b border-slate-200 mb-2">
+                <button 
+                  onClick={() => setViewMode('all')}
+                  className={`flex-1 py-2 text-xs font-bold transition-colors ${viewMode === 'all' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  All Areas
+                </button>
+                <button 
+                  onClick={() => setViewMode('my-tasks')}
+                  className={`flex-1 py-2 text-xs font-bold transition-colors ${viewMode === 'my-tasks' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  My Tasks
+                </button>
+                <button 
+                  onClick={() => setViewMode('others-tasks')}
+                  className={`flex-1 py-2 text-xs font-bold transition-colors ${viewMode === 'others-tasks' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Others' Tasks
+                </button>
+              </div>
+
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
@@ -188,7 +216,9 @@ export default function Dashboard({ role, orgName, onLogout, areas, setAreas }: 
             <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar bg-slate-50/30">
               {filteredAreas.length === 0 ? (
                 <div className="text-center p-8 text-slate-500 text-sm">
-                  No areas found matching "{searchQuery}"
+                  {viewMode === 'my-tasks' ? "You don't have any assignments yet." : 
+                   viewMode === 'others-tasks' ? "No areas are currently assigned to other organizations." : 
+                   `No areas found matching "${searchQuery}"`}
                 </div>
               ) : (
                 filteredAreas.map(area => {
