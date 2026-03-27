@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut, MapPin, AlertTriangle, Users, CheckCircle, Clock, Search, ChevronLeft, Menu, History, FileText, Lock } from 'lucide-react';
-import { DisasterArea, initialAreas, Priority, Status } from '../data/mockData';
+import { DisasterArea, Priority, Status } from '../data/mockData';
 import Map from './Map';
 import { Role } from './Login';
 
@@ -9,41 +9,49 @@ interface DashboardProps {
   role: Role;
   orgName: string;
   onLogout: () => void;
+  areas: DisasterArea[];
+  setAreas: React.Dispatch<React.SetStateAction<DisasterArea[]>>;
 }
 
-export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
-  const [areas, setAreas] = useState<DisasterArea[]>(initialAreas);
+export default function Dashboard({ role, orgName, onLogout, areas, setAreas }: DashboardProps) {
   const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Pending' | 'Active' | 'Completed'>('All');
 
   const selectedArea = useMemo(() => areas.find(a => a.id === selectedAreaId), [areas, selectedAreaId]);
 
   const filteredAreas = useMemo(() => {
-    return areas.filter(a => 
-      a.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      a.id.includes(searchQuery)
-    );
-  }, [areas, searchQuery]);
+    return areas.filter(a => {
+      const matchesSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.id.includes(searchQuery);
+      const matchesFilter = 
+        statusFilter === 'All' ? true :
+        statusFilter === 'Pending' ? a.status === 'Pending' :
+        statusFilter === 'Active' ? (a.status === 'Assigned' || a.status === 'In Progress') :
+        statusFilter === 'Completed' ? a.status === 'Completed' : true;
+      return matchesSearch && matchesFilter;
+    });
+  }, [areas, searchQuery, statusFilter]);
 
   const stats = useMemo(() => {
     return {
       total: areas.length,
-      assigned: areas.filter(a => a.status !== 'Pending').length,
       pending: areas.filter(a => a.status === 'Pending').length,
+      active: areas.filter(a => a.status === 'Assigned' || a.status === 'In Progress').length,
       completed: areas.filter(a => a.status === 'Completed').length,
     };
   }, [areas]);
 
   const handleAssign = () => {
-    if (!selectedAreaId || role !== 'NGO') return;
+    if (!selectedAreaId) return;
     
     setAreas(prev => prev.map(area => {
       if (area.id === selectedAreaId) {
         return {
           ...area,
           status: 'Assigned',
-          assignedTo: orgName
+          assignedTo: orgName,
+          assigneeType: role
         };
       }
       return area;
@@ -51,7 +59,7 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
   };
 
   const handleStatusUpdate = (newStatus: Status) => {
-    if (!selectedAreaId || role !== 'NGO') return;
+    if (!selectedAreaId) return;
     
     setAreas(prev => prev.map(area => {
       if (area.id === selectedAreaId && area.assignedTo === orgName) {
@@ -138,19 +146,31 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-5">
-                <div className="bg-slate-100/80 rounded-xl p-3 flex flex-col items-center justify-center border border-slate-200/50">
-                  <span className="text-xl font-bold text-slate-700">{stats.total}</span>
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Total</span>
-                </div>
-                <div className="bg-blue-50/80 rounded-xl p-3 flex flex-col items-center justify-center border border-blue-100/50">
-                  <span className="text-xl font-bold text-blue-600">{stats.assigned}</span>
-                  <span className="text-[10px] font-semibold text-blue-600/70 uppercase tracking-wider">Assigned</span>
-                </div>
-                <div className="bg-emerald-50/80 rounded-xl p-3 flex flex-col items-center justify-center border border-emerald-100/50">
-                  <span className="text-xl font-bold text-emerald-600">{stats.completed}</span>
-                  <span className="text-[10px] font-semibold text-emerald-600/70 uppercase tracking-wider">Done</span>
-                </div>
+              <div className="grid grid-cols-4 gap-2 mb-5">
+                <button 
+                  onClick={() => setStatusFilter('All')}
+                  className={`rounded-xl p-2 flex flex-col items-center justify-center border transition-all ${statusFilter === 'All' ? 'bg-slate-200 border-slate-400 shadow-inner' : 'bg-slate-100/80 border-slate-200/50 hover:bg-slate-200/50'}`}>
+                  <span className="text-lg font-bold text-slate-700">{stats.total}</span>
+                  <span className="text-[9px] font-semibold text-slate-500 uppercase tracking-wider">Total</span>
+                </button>
+                <button 
+                  onClick={() => setStatusFilter('Pending')}
+                  className={`rounded-xl p-2 flex flex-col items-center justify-center border transition-all ${statusFilter === 'Pending' ? 'bg-red-100 border-red-300 shadow-inner' : 'bg-red-50/80 border-red-100/50 hover:bg-red-100/50'}`}>
+                  <span className="text-lg font-bold text-red-600">{stats.pending}</span>
+                  <span className="text-[9px] font-semibold text-red-600/70 uppercase tracking-wider">Pending</span>
+                </button>
+                <button 
+                  onClick={() => setStatusFilter('Active')}
+                  className={`rounded-xl p-2 flex flex-col items-center justify-center border transition-all ${statusFilter === 'Active' ? 'bg-blue-100 border-blue-300 shadow-inner' : 'bg-blue-50/80 border-blue-100/50 hover:bg-blue-100/50'}`}>
+                  <span className="text-lg font-bold text-blue-600">{stats.active}</span>
+                  <span className="text-[9px] font-semibold text-blue-600/70 uppercase tracking-wider">Active</span>
+                </button>
+                <button 
+                  onClick={() => setStatusFilter('Completed')}
+                  className={`rounded-xl p-2 flex flex-col items-center justify-center border transition-all ${statusFilter === 'Completed' ? 'bg-emerald-100 border-emerald-300 shadow-inner' : 'bg-emerald-50/80 border-emerald-100/50 hover:bg-emerald-100/50'}`}>
+                  <span className="text-lg font-bold text-emerald-600">{stats.completed}</span>
+                  <span className="text-[9px] font-semibold text-emerald-600/70 uppercase tracking-wider">Done</span>
+                </button>
               </div>
 
               <div className="relative">
@@ -314,6 +334,44 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                     </div>
                   )}
 
+                  {/* Images */}
+                  {selectedArea.imageUrls && selectedArea.imageUrls.length > 0 && (
+                    <div className="pt-4 border-t border-slate-100">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <MapPin size={16} className="text-slate-400" />
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Location Images</h4>
+                        </div>
+                        <select 
+                          className="text-xs border border-slate-200 rounded-md px-2 py-1 bg-slate-50 text-slate-600 outline-none focus:border-blue-400"
+                          onChange={(e) => {
+                            const imgElements = document.querySelectorAll('.disaster-image');
+                            imgElements.forEach(img => {
+                              (img as HTMLElement).style.filter = e.target.value;
+                            });
+                          }}
+                        >
+                          <option value="none">Normal</option>
+                          <option value="grayscale(100%)">Grayscale</option>
+                          <option value="contrast(150%)">High Contrast</option>
+                          <option value="invert(100%)">Invert Colors</option>
+                          <option value="sepia(100%)">Sepia</option>
+                        </select>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {selectedArea.imageUrls.map((url, idx) => (
+                          <img 
+                            key={idx} 
+                            src={url} 
+                            alt={`${selectedArea.name} damage`} 
+                            className="disaster-image w-full h-28 object-cover rounded-xl border border-slate-200 shadow-sm transition-all duration-300" 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {selectedArea.assignedTo && selectedArea.assignedTo === orgName && (
                     <div className="bg-blue-50 text-blue-800 text-sm p-4 rounded-xl border border-blue-100 flex items-center gap-3 mt-4">
                       <CheckCircle size={20} className="text-blue-600 shrink-0" />
@@ -329,7 +387,7 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                       <Lock size={20} className="text-slate-500 shrink-0" />
                       <div>
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Area Locked</p>
-                        <p className="font-medium">Currently rehabilitated by <strong>{selectedArea.assignedTo}</strong></p>
+                        <p className="font-medium">Currently rehabilitated by <strong>{selectedArea.assignedTo}</strong> ({selectedArea.assigneeType})</p>
                       </div>
                     </div>
                   )}
@@ -339,47 +397,41 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
 
             {/* Action Buttons (Fixed at bottom) */}
             <div className="p-5 border-t border-slate-200 bg-white shrink-0">
-              {role === 'NGO' ? (
-                selectedArea.status === 'Pending' ? (
-                  <button
-                    onClick={handleAssign}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    <MapPin size={18} />
-                    Assign to {orgName}
-                  </button>
-                ) : selectedArea.assignedTo === orgName ? (
-                  <div className="grid grid-cols-2 gap-3">
-                    {selectedArea.status !== 'In Progress' && selectedArea.status !== 'Completed' && (
-                      <button
-                        onClick={() => handleStatusUpdate('In Progress')}
-                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2 text-sm hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        <Clock size={16} />
-                        Start Work
-                      </button>
-                    )}
-                    {selectedArea.status !== 'Completed' && (
-                      <button
-                        onClick={() => handleStatusUpdate('Completed')}
-                        className={`bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-sm hover:scale-[1.02] active:scale-[0.98] ${
-                          selectedArea.status === 'In Progress' ? 'col-span-1' : 'col-span-2'
-                        }`}
-                      >
-                        <CheckCircle size={16} />
-                        Mark Completed
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center gap-2">
-                    <Lock size={16} className="text-slate-400" />
-                    <p className="text-sm font-medium text-slate-500">Locked by {selectedArea.assignedTo}</p>
-                  </div>
-                )
+              {selectedArea.status === 'Pending' ? (
+                <button
+                  onClick={handleAssign}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-200 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <MapPin size={18} />
+                  Assign to {orgName}
+                </button>
+              ) : selectedArea.assignedTo === orgName ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {selectedArea.status !== 'In Progress' && selectedArea.status !== 'Completed' && (
+                    <button
+                      onClick={() => handleStatusUpdate('In Progress')}
+                      className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-purple-200 flex items-center justify-center gap-2 text-sm hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <Clock size={16} />
+                      Start Work
+                    </button>
+                  )}
+                  {selectedArea.status !== 'Completed' && (
+                    <button
+                      onClick={() => handleStatusUpdate('Completed')}
+                      className={`bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-lg shadow-emerald-200 flex items-center justify-center gap-2 text-sm hover:scale-[1.02] active:scale-[0.98] ${
+                        selectedArea.status === 'In Progress' ? 'col-span-1' : 'col-span-2'
+                      }`}
+                    >
+                      <CheckCircle size={16} />
+                      Mark Completed
+                    </button>
+                  )}
+                </div>
               ) : (
-                <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <p className="text-sm font-medium text-slate-500">Government view: Monitoring mode active.</p>
+                <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center gap-2">
+                  <Lock size={16} className="text-slate-400" />
+                  <p className="text-sm font-medium text-slate-500">Locked by {selectedArea.assignedTo} ({selectedArea.assigneeType})</p>
                 </div>
               )}
             </div>

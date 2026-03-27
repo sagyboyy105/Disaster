@@ -33,13 +33,13 @@ function MapUpdater({ selectedArea, areas }: { selectedArea: DisasterArea | unde
 }
 
 export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOrg }: MapProps) {
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'High': return '#ef4444'; // red-500
-      case 'Medium': return '#eab308'; // yellow-500
-      case 'Low': return '#22c55e'; // green-500
-      default: return '#3b82f6'; // blue-500
+  const getStatusColor = (area: DisasterArea) => {
+    if (area.status === 'Completed') return '#9ca3af'; // gray-400
+    if (area.status !== 'Pending') {
+      if (area.assigneeType === 'NGO') return '#3b82f6'; // blue-500
+      if (area.assigneeType === 'Gov') return '#a855f7'; // purple-500
     }
+    return '#ef4444'; // red-500 (Pending default)
   };
 
   const getRadius = (peopleAffected: number) => {
@@ -73,19 +73,17 @@ export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOr
         {areas.map((area) => {
           const isSelected = area.id === selectedAreaId;
           const isLockedByOther = area.status !== 'Pending' && area.assignedTo !== currentUserOrg;
-          const baseColor = getPriorityColor(area.priority);
-          const color = isLockedByOther ? '#94a3b8' : baseColor;
+          const color = getStatusColor(area);
           
           return (
             <CircleMarker
               key={area.id}
               center={[area.lat, area.lng]}
               pathOptions={{
-                color: isSelected ? '#000' : (isLockedByOther ? '#64748b' : color),
+                color: isSelected ? '#000' : color,
                 fillColor: color,
-                fillOpacity: isSelected ? 0.9 : (isLockedByOther ? 0.4 : 0.6),
-                weight: isSelected ? 3 : (isLockedByOther ? 2 : 1),
-                dashArray: isLockedByOther ? '4 4' : undefined,
+                fillOpacity: isSelected ? 0.9 : 0.7,
+                weight: isSelected ? 3 : 1,
               }}
               radius={getRadius(area.peopleAffected)}
               eventHandlers={{
@@ -98,7 +96,7 @@ export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOr
                     <h3 className="font-bold text-slate-900">{area.name}</h3>
                     {isLockedByOther && <span title="Locked" className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">🔒 Locked</span>}
                   </div>
-                  <p className="text-xs text-slate-500 mb-2">Priority: <span style={{color: baseColor}} className="font-semibold">{area.priority}</span></p>
+                  <p className="text-xs text-slate-500 mb-2">Priority: <span className="font-semibold">{area.priority}</span></p>
                   <p className="text-xs text-slate-700">{area.damageLevel}</p>
                 </div>
               </Popup>
@@ -109,22 +107,25 @@ export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOr
       
       {/* Custom Map Overlay for Legend */}
       <div className="absolute bottom-6 right-6 bg-white/90 backdrop-blur-md p-4 rounded-2xl shadow-xl border border-slate-200 z-[1000] text-sm">
-        <h4 className="font-bold text-slate-800 mb-3">Priority Legend</h4>
+        <h4 className="font-bold text-slate-800 mb-3">Area Status Legend</h4>
         <div className="flex items-center gap-3 mb-2">
           <div className="w-4 h-4 rounded-full bg-red-500 opacity-80 shadow-sm"></div>
-          <span className="text-slate-700 font-medium">High Priority</span>
+          <span className="text-slate-700 font-medium">Pending (Default)</span>
         </div>
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-4 h-4 rounded-full bg-yellow-500 opacity-80 shadow-sm"></div>
-          <span className="text-slate-700 font-medium">Medium Priority</span>
+          <div className="w-4 h-4 rounded-full bg-blue-500 opacity-80 shadow-sm"></div>
+          <span className="text-slate-700 font-medium">Assigned to NGO</span>
         </div>
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-4 h-4 rounded-full bg-green-500 opacity-80 shadow-sm"></div>
-          <span className="text-slate-700 font-medium">Low Priority</span>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-4 h-4 rounded-full bg-purple-500 opacity-80 shadow-sm"></div>
+          <span className="text-slate-700 font-medium">Assigned to Gov</span>
         </div>
-        <div className="pt-3 border-t border-slate-200 flex items-center gap-3">
-          <div className="w-4 h-4 rounded-full bg-slate-400 opacity-40 border-2 border-slate-500 border-dashed"></div>
-          <span className="text-slate-600 font-medium italic">Locked (Assigned)</span>
+        <div className="flex items-center gap-3">
+          <div className="w-4 h-4 rounded-full bg-gray-400 opacity-80 shadow-sm"></div>
+          <span className="text-slate-700 font-medium">Completed</span>
+        </div>
+        <div className="mt-3 pt-3 border-t border-slate-200 text-xs text-slate-500 italic">
+          Circle size indicates intensity (people affected).
         </div>
       </div>
     </div>
