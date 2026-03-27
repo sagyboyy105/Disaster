@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { LogOut, MapPin, AlertTriangle, Users, CheckCircle, Clock, Search, ChevronLeft, Menu, History, FileText } from 'lucide-react';
+import { LogOut, MapPin, AlertTriangle, Users, CheckCircle, Clock, Search, ChevronLeft, Menu, History, FileText, Lock } from 'lucide-react';
 import { DisasterArea, initialAreas, Priority, Status } from '../data/mockData';
 import Map from './Map';
 import { Role } from './Login';
@@ -96,7 +96,7 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
       
       {/* Full Screen Map */}
       <div className="absolute inset-0 z-0">
-        <Map areas={filteredAreas} selectedAreaId={selectedAreaId} onSelectArea={setSelectedAreaId} />
+        <Map areas={filteredAreas} selectedAreaId={selectedAreaId} onSelectArea={setSelectedAreaId} currentUserOrg={orgName} />
       </div>
 
       {/* Collapsible Left Panel */}
@@ -171,7 +171,10 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                   No areas found matching "{searchQuery}"
                 </div>
               ) : (
-                filteredAreas.map(area => (
+                filteredAreas.map(area => {
+                  const isLockedByOther = area.status !== 'Pending' && area.assignedTo !== orgName;
+                  
+                  return (
                   <motion.button
                     key={area.id}
                     whileHover={{ scale: 1.01 }}
@@ -180,11 +183,16 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                     className={`w-full text-left p-4 rounded-xl border transition-all duration-200 ${
                       selectedAreaId === area.id 
                         ? 'bg-white border-blue-300 shadow-md ring-1 ring-blue-200 z-10 relative' 
-                        : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm'
+                        : isLockedByOther
+                          ? 'bg-slate-50/50 border-slate-200 opacity-75 hover:opacity-100'
+                          : 'bg-white border-slate-200 hover:border-blue-300 hover:shadow-sm'
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-slate-800">{area.name}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className={`font-bold ${isLockedByOther ? 'text-slate-600' : 'text-slate-800'}`}>{area.name}</h3>
+                        {isLockedByOther && <Lock size={14} className="text-slate-400" />}
+                      </div>
                       {getPriorityBadge(area.priority)}
                     </div>
                     <div className="flex items-center gap-4 text-xs text-slate-500 mt-3 font-medium">
@@ -195,7 +203,7 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                       {getStatusBadge(area.status)}
                     </div>
                   </motion.button>
-                ))
+                )})
               )}
             </div>
           </motion.div>
@@ -306,12 +314,22 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                     </div>
                   )}
 
-                  {selectedArea.assignedTo && (
+                  {selectedArea.assignedTo && selectedArea.assignedTo === orgName && (
                     <div className="bg-blue-50 text-blue-800 text-sm p-4 rounded-xl border border-blue-100 flex items-center gap-3 mt-4">
                       <CheckCircle size={20} className="text-blue-600 shrink-0" />
                       <div>
-                        <p className="text-xs font-semibold text-blue-600/70 uppercase tracking-wider mb-0.5">Assigned Organization</p>
+                        <p className="text-xs font-semibold text-blue-600/70 uppercase tracking-wider mb-0.5">Assigned to You</p>
                         <p className="font-bold">{selectedArea.assignedTo}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedArea.status !== 'Pending' && selectedArea.assignedTo !== orgName && (
+                    <div className="bg-slate-100 text-slate-700 text-sm p-4 rounded-xl border border-slate-200 flex items-center gap-3 mt-4">
+                      <Lock size={20} className="text-slate-500 shrink-0" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Area Locked</p>
+                        <p className="font-medium">Currently rehabilitated by <strong>{selectedArea.assignedTo}</strong></p>
                       </div>
                     </div>
                   )}
@@ -354,8 +372,9 @@ export default function Dashboard({ role, orgName, onLogout }: DashboardProps) {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200">
-                    <p className="text-sm font-medium text-slate-500">This area is assigned to another organization.</p>
+                  <div className="text-center p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center gap-2">
+                    <Lock size={16} className="text-slate-400" />
+                    <p className="text-sm font-medium text-slate-500">Locked by {selectedArea.assignedTo}</p>
                   </div>
                 )
               ) : (

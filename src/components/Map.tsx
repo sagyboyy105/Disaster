@@ -7,6 +7,7 @@ interface MapProps {
   areas: DisasterArea[];
   selectedAreaId: string | null;
   onSelectArea: (id: string) => void;
+  currentUserOrg: string;
 }
 
 // Component to handle map center updates when selection changes
@@ -31,7 +32,7 @@ function MapUpdater({ selectedArea, areas }: { selectedArea: DisasterArea | unde
   return null;
 }
 
-export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
+export default function Map({ areas, selectedAreaId, onSelectArea, currentUserOrg }: MapProps) {
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'High': return '#ef4444'; // red-500
@@ -71,17 +72,20 @@ export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
 
         {areas.map((area) => {
           const isSelected = area.id === selectedAreaId;
-          const color = getPriorityColor(area.priority);
+          const isLockedByOther = area.status !== 'Pending' && area.assignedTo !== currentUserOrg;
+          const baseColor = getPriorityColor(area.priority);
+          const color = isLockedByOther ? '#94a3b8' : baseColor;
           
           return (
             <CircleMarker
               key={area.id}
               center={[area.lat, area.lng]}
               pathOptions={{
-                color: isSelected ? '#000' : color,
+                color: isSelected ? '#000' : (isLockedByOther ? '#64748b' : color),
                 fillColor: color,
-                fillOpacity: isSelected ? 0.9 : 0.6,
-                weight: isSelected ? 3 : 1,
+                fillOpacity: isSelected ? 0.9 : (isLockedByOther ? 0.4 : 0.6),
+                weight: isSelected ? 3 : (isLockedByOther ? 2 : 1),
+                dashArray: isLockedByOther ? '4 4' : undefined,
               }}
               radius={getRadius(area.peopleAffected)}
               eventHandlers={{
@@ -90,8 +94,11 @@ export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
             >
               <Popup className="custom-popup">
                 <div className="p-1">
-                  <h3 className="font-bold text-slate-900">{area.name}</h3>
-                  <p className="text-xs text-slate-500 mb-2">Priority: <span style={{color}} className="font-semibold">{area.priority}</span></p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-slate-900">{area.name}</h3>
+                    {isLockedByOther && <span title="Locked" className="text-[10px] font-bold uppercase tracking-wider bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded text-slate-500">🔒 Locked</span>}
+                  </div>
+                  <p className="text-xs text-slate-500 mb-2">Priority: <span style={{color: baseColor}} className="font-semibold">{area.priority}</span></p>
                   <p className="text-xs text-slate-700">{area.damageLevel}</p>
                 </div>
               </Popup>
@@ -111,9 +118,13 @@ export default function Map({ areas, selectedAreaId, onSelectArea }: MapProps) {
           <div className="w-4 h-4 rounded-full bg-yellow-500 opacity-80 shadow-sm"></div>
           <span className="text-slate-700 font-medium">Medium Priority</span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-3">
           <div className="w-4 h-4 rounded-full bg-green-500 opacity-80 shadow-sm"></div>
           <span className="text-slate-700 font-medium">Low Priority</span>
+        </div>
+        <div className="pt-3 border-t border-slate-200 flex items-center gap-3">
+          <div className="w-4 h-4 rounded-full bg-slate-400 opacity-40 border-2 border-slate-500 border-dashed"></div>
+          <span className="text-slate-600 font-medium italic">Locked (Assigned)</span>
         </div>
       </div>
     </div>
